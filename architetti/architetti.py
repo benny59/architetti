@@ -15,15 +15,16 @@ def create_database(db_file):
                      title TEXT,
                      date TEXT,
                      category TEXT,
-                     summary TEXT)''')
+                     summary TEXT,
+                     appointment TEXT)''')  # Aggiunge la colonna "appointment"
         conn.commit()
         conn.close()
 
 def insert_record(db_file, record):
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
-    c.execute('''INSERT INTO records (title, date, category, summary)
-                 VALUES (?, ?, ?, ?)''', (record['Title'], record['Date'], record['Category'], record['Summary']))
+    c.execute('''INSERT INTO records (title, date, category, summary, appointment)
+                 VALUES (?, ?, ?, ?, ?)''', (record['Title'], record['Date'], record['Category'], record['Summary'], record['Appointment']))
     conn.commit()
     conn.close()
 
@@ -56,19 +57,21 @@ def scrape_professionearchitetto(db_file):
             title = article.find('h2', class_='entry-title').text.strip()
             date = article.find('time', class_='date').text.strip()
             category = article.find('span', class_='categoria').text.strip()
-            image = article.find('img')['data-src']
             summary = article.find('div', class_='entry-summary').text.strip()
+            appointment = article.find('span', class_='appuntamento').text.strip()  # Aggiunge il campo "appuntamento"
 
-            # Wrap text
+            # Wrap text per ogni campo
             title = '\n'.join(textwrap.wrap(title, width=50))
             category = '\n'.join(textwrap.wrap(category, width=50))
             summary = '\n'.join(textwrap.wrap(summary, width=50))
+            appointment = '\n'.join(textwrap.wrap(appointment, width=50))
 
             result = {
                 'Title': title,
                 'Date': datetime.strptime(date, '%d.%m.%Y').strftime('%Y-%m-%d'),  # Formato data standard
                 'Category': category,
-                'Summary': summary
+                'Summary': summary,
+                'Appointment': appointment  # Aggiunge il campo "appuntamento"
             }
             page_results.append(result)
 
