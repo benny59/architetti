@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from tabulate import tabulate
 import textwrap
 from datetime import datetime
+import time
 
 def create_database(db_file):
     if not os.path.exists(db_file):
@@ -94,13 +95,25 @@ def scrape_professionearchitetto(db_file):
 
     return results
 
-if __name__ == "__main__":
+def main():
     db_file = "records.db"
     create_database(db_file)
-    records = scrape_professionearchitetto(db_file)
-    if records:
-        headers = records[0].keys()
-        rows = [record.values() for record in records]
-        print(tabulate(rows, headers=headers, tablefmt='grid'))
-    else:
-        print("Nessun nuovo concorso trovato.")
+    
+    # Intervallo di tempo in minuti
+    interval = 1  # Ogni ora
+
+    while True:
+        print("Eseguendo lo scraping...")
+        records = scrape_professionearchitetto(db_file)
+        if records:
+            headers = records[0].keys()
+            rows = [record.values() for record in records]
+            print(tabulate(rows, headers=headers, tablefmt='grid'))
+        else:
+            print("Nessun nuovo concorso trovato.")
+        
+        print(f"Attendi {interval} minuti prima della prossima verifica...")
+        time.sleep(interval * 60)  # Converti il tempo in secondi
+
+if __name__ == "__main__":
+    main()
