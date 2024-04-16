@@ -2,11 +2,17 @@ import os
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
-from tabulate import tabulate
 import textwrap
 from datetime import datetime
+import logging
+import asyncio
+from aiogram import Bot, Dispatcher, executor, types
 import time
 
+# Configurazione del logger
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Funzione per creare il database se non esiste
 def create_database(db_file):
     if not os.path.exists(db_file):
         conn = sqlite3.connect(db_file)
@@ -16,19 +22,20 @@ def create_database(db_file):
                      title TEXT,
                      date TEXT,
                      category TEXT,
-                     summary TEXT,
-                     appointment TEXT)''')  # Aggiunge la colonna "appointment"
+                     summary TEXT)''')
         conn.commit()
         conn.close()
 
+# Funzione per inserire un record nel database
 def insert_record(db_file, record):
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
-    c.execute('''INSERT INTO records (title, date, category, summary, appointment)
-                 VALUES (?, ?, ?, ?, ?)''', (record['Title'], record['Date'], record['Category'], record['Summary'], record['Appointment']))
+    c.execute('''INSERT INTO records (title, date, category, summary)
+                 VALUES (?, ?, ?, ?)''', (record['Title'], record['Date'], record['Category'], record['Summary']))
     conn.commit()
     conn.close()
 
+# Funzione per verificare se un record esiste già nel database
 def record_exists(db_file, title):
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
@@ -37,17 +44,13 @@ def record_exists(db_file, title):
     conn.close()
     return result is not None
 
+# Funzione per lo scraping del sito web e l'estrazione dei record
+# Funzione per lo scraping del sito web e l'estrazione dei record
+# Funzione per lo scraping del sito web e l'estrazione dei record
 def scrape_professionearchitetto(db_file):
+    logging.info('Inizio lo scraping...')
     base_url = "https://www.professionearchitetto.it/key/concorsi-di-progettazione/"
     results = []
-
-    # Funzione per estrarre il numero totale di pagine
-    def extract_total_pages(soup):
-        numeratore = soup.find('div', class_='numeratore')
-        if numeratore:
-            return len(numeratore.find_all('a')) + 1
-        else:
-            return 1
 
     # Funzione per estrarre i record da una pagina
     def extract_records_from_page(soup):
@@ -58,62 +61,97 @@ def scrape_professionearchitetto(db_file):
             title = article.find('h2', class_='entry-title').text.strip()
             date = article.find('time', class_='date').text.strip()
             category = article.find('span', class_='categoria').text.strip()
+            
+            # Gestisci l'attributo 'data-src' se presente, altrimenti usa 'src'
+            img_tag = article.find('img')
+            if img_tag and 'data-src' in img_tag.attrs:
+                image = img_tag['data-src']
+            elif img_tag and 'src' in img_tag.attrs:
+                image = img_tag['src']
+            else:
+                image = None
+            
             summary = article.find('div', class_='entry-summary').text.strip()
-            appointment = article.find('span', class_='appuntamento').text.strip()  # Aggiunge il campo "appuntamento"
 
-            # Wrap text per ogni campo
+            # Wrap text
             title = '\n'.join(textwrap.wrap(title, width=50))
             category = '\n'.join(textwrap.wrap(category, width=50))
             summary = '\n'.join(textwrap.wrap(summary, width=50))
-            appointment = '\n'.join(textwrap.wrap(appointment, width=50))
 
             result = {
                 'Title': title,
                 'Date': datetime.strptime(date, '%d.%m.%Y').strftime('%Y-%m-%d'),  # Formato data standard
                 'Category': category,
-                'Summary': summary,
-                'Appointment': appointment  # Aggiunge il campo "appuntamento"
+                'Image': image,
+                'Summary': summary
             }
             page_results.append(result)
 
         return page_results
 
-    # Loop attraverso tutte le pagine di risultati
-    response = requests.get(base_url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    total_pages = extract_total_pages(soup)
-
-    for page in range(1, total_pages + 1):
-        if page > 1:
-            response = requests.get(base_url + str(page))
-            soup = BeautifulSoup(response.text, 'html.parser')
+    # Esegui lo scraping fino a quando ci sono record sulla pagina o si raggiunge il limite massimo di pagine
+    max_pages = 10
+    page_num = 1
+    while page_num <= max_pages:
+        url = f"{base_url}?pag={page_num}"
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
         records = extract_records_from_page(soup)
+        
+        if not records:
+            break
+        
         for record in records:
             if not record_exists(db_file, record['Title']):
                 insert_record(db_file, record)
                 results.append(record)
+        
+        page_num += 1
 
+    logging.info('Scraping completato.')
     return results
 
-def main():
+# Funzione per l'invio di un messaggio Telegram
+async def send_telegram_message(bot, chat_id, records):  # Aggiungi 'bot' come argomento
+    #   bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
+
+    for record in records:
+        # Formatta il record per renderlo più leggibile
+        formatted_record = f"<b>Titolo:</b> <code style='color:blue'>{record['Title']}</code>\n" \
+                        f"<b>Data:</b> <code style='color:green'>{record['Date']}</code>\n" \
+                        f"<b>Categoria:</b> <code style='color:red'>{record['Category']}</code>\n" \
+                        f"<b>Riassunto:</b> <i>{record['Summary']}</i>\n\n"
+
+        # Invia il record formattato
+        await bot.send_message(chat_id=chat_id, text=formatted_record, parse_mode=types.ParseMode.HTML)
+        # Aggiungi un ritardo di 2 secondi tra l'invio di ciascun messaggio
+        time.sleep(4)
+
+# Funzione principale
+async def main(bot):  # Passa l'oggetto bot come argomento
     db_file = "records.db"
     create_database(db_file)
-    
-    # Intervallo di tempo in minuti
-    interval = 1  # Ogni ora
-
     while True:
-        print("Eseguendo lo scraping...")
-        records = scrape_professionearchitetto(db_file)
-        if records:
-            headers = records[0].keys()
-            rows = [record.values() for record in records]
-            print(tabulate(rows, headers=headers, tablefmt='grid'))
+        logging.info('Avvio ciclo di scraping...')
+        new_records = scrape_professionearchitetto(db_file)
+        if new_records:
+            logging.info('Nuovi record trovati.')
+            chat_id = -1001993911752  # Sostituire con il vero chat_id del gruppo
+            await send_telegram_message(bot, chat_id, new_records)  # Correggi la chiamata
         else:
-            print("Nessun nuovo concorso trovato.")
-        
-        print(f"Attendi {interval} minuti prima della prossima verifica...")
-        time.sleep(interval * 60)  # Converti il tempo in secondi
+            logging.info('Nessun nuovo record trovato.')
+        # Aspetta 1 ora prima di eseguire un altro ciclo di scraping
+        logging.info('Attendo 1 ora prima di eseguire un altro ciclo di scraping...')
+        await asyncio.sleep(60)
 
+
+# Esegui il loop principale
 if __name__ == "__main__":
-    main()
+        bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
+        asyncio.run(main(bot))  # Passa l'oggetto bot come argomento a main()
+
+
+# Esegui il loop principale
+if __name__ == "__main__":
+        bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
+        asyncio.run(main(bot))  # Passa l'oggetto bot come argomento a main()
