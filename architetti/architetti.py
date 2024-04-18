@@ -142,7 +142,7 @@ async def main(bot):  # Passa l'oggetto bot come argomento
             logging.info('Nessun nuovo record trovato.')
         # Aspetta 1 ora prima di eseguire un altro ciclo di scraping
         logging.info('Attendo 1 ora prima di eseguire un altro ciclo di scraping...')
-        await asyncio.sleep(60)
+        await asyncio.sleep(3600)
 
 
 # Esegui il loop principale
