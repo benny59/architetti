@@ -126,6 +126,11 @@ async def send_telegram_message(bot, chat_id, records):  # Aggiungi 'bot' come a
         await bot.send_message(chat_id=chat_id, text=formatted_record, parse_mode=types.ParseMode.HTML)
         # Aggiungi un ritardo di 2 secondi tra l'invio di ciascun messaggio
         time.sleep(4)
+        
+async def main_wrapper():
+    bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
+    await main(bot)
+
 
 # Funzione principale
 async def main(bot):  # Passa l'oggetto bot come argomento
@@ -147,11 +152,4 @@ async def main(bot):  # Passa l'oggetto bot come argomento
 
 # Esegui il loop principale
 if __name__ == "__main__":
-        bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
-        asyncio.run(main(bot))  # Passa l'oggetto bot come argomento a main()
-
-
-# Esegui il loop principale
-if __name__ == "__main__":
-        bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
-        asyncio.run(main(bot))  # Passa l'oggetto bot come argomento a main()
+    asyncio.run(main_wrapper())
