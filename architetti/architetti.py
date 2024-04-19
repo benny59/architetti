@@ -47,6 +47,7 @@ def record_exists(db_file, title):
 # Funzione per lo scraping del sito web e l'estrazione dei record
 # Funzione per lo scraping del sito web e l'estrazione dei record
 # Funzione per lo scraping del sito web e l'estrazione dei record
+# Funzione per lo scraping del sito web e l'estrazione dei record
 def scrape_professionearchitetto(db_file):
     logging.info('Inizio lo scraping...')
     base_url = "https://www.professionearchitetto.it/key/concorsi-di-progettazione/"
@@ -54,11 +55,15 @@ def scrape_professionearchitetto(db_file):
 
     # Funzione per estrarre i record da una pagina
     def extract_records_from_page(soup):
+        base_url = "https://www.professionearchitetto.it"
         articles = soup.find_all('article', class_='addlink')
         page_results = []
 
         for article in articles:
-            title = article.find('h2', class_='entry-title').text.strip()
+            title_tag = article.find('h2', class_='entry-title')
+            title = title_tag.text.strip()
+            relative_url = title_tag.find('a')['href'] if title_tag.find('a') else None
+            url = base_url + relative_url if relative_url else None  # Completa l'URL concatenando la parte base con l'URL relativo
             date = article.find('time', class_='date').text.strip()
             category = article.find('span', class_='categoria').text.strip()
             
@@ -83,11 +88,13 @@ def scrape_professionearchitetto(db_file):
                 'Date': datetime.strptime(date, '%d.%m.%Y').strftime('%Y-%m-%d'),  # Formato data standard
                 'Category': category,
                 'Image': image,
-                'Summary': summary
+                'Summary': summary,
+                'URL': url
             }
             page_results.append(result)
 
         return page_results
+
 
     # Esegui lo scraping fino a quando ci sono record sulla pagina o si raggiunge il limite massimo di pagine
     max_pages = 10
@@ -97,33 +104,42 @@ def scrape_professionearchitetto(db_file):
         response = requests.get(url)
         soup = BeautifulSoup(response.text, 'html.parser')
         records = extract_records_from_page(soup)
-        
+
         if not records:
             break
-        
+
         for record in records:
             if not record_exists(db_file, record['Title']):
                 insert_record(db_file, record)
                 results.append(record)
-        
+
         page_num += 1
 
     logging.info('Scraping completato.')
     return results
 
+
 # Funzione per l'invio di un messaggio Telegram
 async def send_telegram_message(bot, chat_id, records):  # Aggiungi 'bot' come argomento
-    #   bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
-
     for record in records:
-        # Formatta il record per renderlo più leggibile
-        formatted_record = f"<b>Titolo:</b> <code style='color:blue'>{record['Title']}</code>\n" \
-                        f"<b>Data:</b> <code style='color:green'>{record['Date']}</code>\n" \
-                        f"<b>Categoria:</b> <code style='color:red'>{record['Category']}</code>\n" \
-                        f"<b>Riassunto:</b> <i>{record['Summary']}</i>\n\n"
+        #print(record)
+        # Estrai le informazioni dal record
+        title = record['Title']
+        date = record['Date']
+        category = record['Category']
+        summary = record['Summary']
+        url = record.get('URL')  # Estrai l'URL se presente
 
-        # Invia il record formattato
-        await bot.send_message(chat_id=chat_id, text=formatted_record, parse_mode=types.ParseMode.HTML)
+        # Costruisci il messaggio
+        message = f"<b>Titolo:</b> <code style='color:blue'>{title}</code>\n" \
+                  f"<b>Data:</b> <code style='color:green'>{date}</code>\n" \
+                  f"<b>Categoria:</b> <code style='color:red'>{category}</code>\n" \
+                  f"<b>Riassunto:</b> <i>{summary}</i>\n"
+        if url:
+            message = f"<a href='{url}'>Link al concorso</a>\n"
+
+        # Invia il messaggio
+        await bot.send_message(chat_id=chat_id, text=message, parse_mode=types.ParseMode.HTML)
         # Aggiungi un ritardo di 2 secondi tra l'invio di ciascun messaggio
         time.sleep(4)
         
