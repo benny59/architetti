@@ -1,134 +1,110 @@
 import os
-import sqlite3
-import requests
-from bs4 import BeautifulSoup
-import textwrap
-from datetime import datetime
-import logging
 import asyncio
-from aiogram import Bot, Dispatcher, executor, types
-import time
+from aiogram import Bot, types
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.dispatcher import Dispatcher
+from aiogram.utils import executor
+import logging
+import sqlite3
+import sys
+sys.path.append(os.path.dirname(__file__))  # Assicurati che questa riga sia all'inizio del file
+from aiogram import Bot
+from scrape_professione_architetto import scrape_professione_architetto
+from scrape_dummy_site import scrape_dummy_site
 
-# Configurazione del logger
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Funzione per creare il database se non esiste
-def create_database(db_file):
-    if not os.path.exists(db_file):
-        conn = sqlite3.connect(db_file)
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS records
+async def main_wrapper():
+    bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
+    await main(bot)
+
+async def main(bot):
+    db_file = "records.db"
+    sites = {
+        'professione_architetto': {
+            'nickname': 'professione_architetto',
+            'scrape_function': scrape_professione_architetto
+        },
+        'dummy_site': {
+            'nickname': 'dummy_site',
+            'scrape_function': scrape_dummy_site
+        }
+        # Aggiungi altri siti qui...
+    }
+
+    create_database(db_file, sites)
+
+    while True:
+        logging.info('Starting scraping cycle...')
+
+        for site_name, site_info in sites.items():
+            new_records = site_info['scrape_function'](db_file)
+
+            if new_records:
+                logging.info(f'New records found for {site_name}.')
+                chat_id = -1001993911752  # Group chat ID, puoi cambiarlo con il chat ID desiderato
+                await send_telegram_message(bot, chat_id, new_records)
+            else:
+                logging.info(f'No new records found for {site_name}.')
+
+        logging.info('Waiting 1 hour before running another scraping cycle...')
+        await asyncio.sleep(3600)
+
+
+def create_database(db_file, sites):
+    conn = sqlite3.connect(db_file)
+    c = conn.cursor()
+
+    for site_name, site_info in sites.items():
+        table_name = f"records_{site_info['nickname']}"
+        c.execute(f'''CREATE TABLE IF NOT EXISTS {table_name}
                      (id INTEGER PRIMARY KEY,
                      title TEXT,
                      date TEXT,
                      category TEXT,
-                     summary TEXT)''')
-        conn.commit()
-        conn.close()
+                     summary TEXT,
+                     url TEXT,
+                     checksum TEXT)''')
 
-# Funzione per inserire un record nel database
-def insert_record(db_file, record):
-    conn = sqlite3.connect(db_file)
-    c = conn.cursor()
-    c.execute('''INSERT INTO records (title, date, category, summary)
-                 VALUES (?, ?, ?, ?)''', (record['Title'], record['Date'], record['Category'], record['Summary']))
+        c.execute(f'''CREATE INDEX IF NOT EXISTS idx_checksum_{site_info['nickname']}
+                      ON {table_name} (checksum)''')
+
     conn.commit()
     conn.close()
 
-# Funzione per verificare se un record esiste già nel database
-def record_exists(db_file, title):
+def insert_record(db_file, table_name, record):
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
-    c.execute('''SELECT * FROM records WHERE title = ?''', (title,))
+    c.execute(f'''INSERT INTO {table_name} (title, date, category, summary, url, checksum)
+                 VALUES (?, ?, ?, ?, ?, ?)''',
+              (record['Title'], record['Date'], record['Category'], record['Summary'], record['URL'], record['Checksum']))
+    conn.commit()
+    conn.close()
+
+def record_exists(db_file, table_name, checksum):
+    conn = sqlite3.connect(db_file)
+    c = conn.cursor()
+    c.execute(f'''SELECT * FROM {table_name} WHERE checksum = ?''', (checksum,))
     result = c.fetchone()
     conn.close()
+    if result:
+        logging.debug(f"Record with checksum {checksum} already exists.")
+    else:
+        logging.debug(f"Record with checksum {checksum} does not exist.")
     return result is not None
+    
+import time
+from aiogram import types
 
-# Funzione per lo scraping del sito web e l'estrazione dei record
-# Funzione per lo scraping del sito web e l'estrazione dei record
-# Funzione per lo scraping del sito web e l'estrazione dei record
-# Funzione per lo scraping del sito web e l'estrazione dei record
-def scrape_professionearchitetto(db_file):
-    logging.info('Inizio lo scraping...')
-    base_url = "https://www.professionearchitetto.it/key/concorsi-di-progettazione/"
-    results = []
-
-    # Funzione per estrarre i record da una pagina
-    def extract_records_from_page(soup):
-        base_url = "https://www.professionearchitetto.it"
-        articles = soup.find_all('article', class_='addlink')
-        page_results = []
-
-        for article in articles:
-            title_tag = article.find('h2', class_='entry-title')
-            title = title_tag.text.strip()
-            relative_url = title_tag.find('a')['href'] if title_tag.find('a') else None
-            url = base_url + relative_url if relative_url else None  # Completa l'URL concatenando la parte base con l'URL relativo
-            date = article.find('time', class_='date').text.strip()
-            category = article.find('span', class_='categoria').text.strip()
-            
-            # Gestisci l'attributo 'data-src' se presente, altrimenti usa 'src'
-            img_tag = article.find('img')
-            if img_tag and 'data-src' in img_tag.attrs:
-                image = img_tag['data-src']
-            elif img_tag and 'src' in img_tag.attrs:
-                image = img_tag['src']
-            else:
-                image = None
-            
-            summary = article.find('div', class_='entry-summary').text.strip()
-
-            # Wrap text
-            title = '\n'.join(textwrap.wrap(title, width=50))
-            category = '\n'.join(textwrap.wrap(category, width=50))
-            summary = '\n'.join(textwrap.wrap(summary, width=50))
-
-            result = {
-                'Title': title,
-                'Date': datetime.strptime(date, '%d.%m.%Y').strftime('%Y-%m-%d'),  # Formato data standard
-                'Category': category,
-                'Image': image,
-                'Summary': summary,
-                'URL': url
-            }
-            page_results.append(result)
-
-        return page_results
-
-
-    # Esegui lo scraping fino a quando ci sono record sulla pagina o si raggiunge il limite massimo di pagine
-    max_pages = 10
-    page_num = 1
-    while page_num <= max_pages:
-        url = f"{base_url}?pag={page_num}"
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        records = extract_records_from_page(soup)
-
-        if not records:
-            break
-
-        for record in records:
-            if not record_exists(db_file, record['Title']):
-                insert_record(db_file, record)
-                results.append(record)
-
-        page_num += 1
-
-    logging.info('Scraping completato.')
-    return results
-
-
-# Funzione per l'invio di un messaggio Telegram
-async def send_telegram_message(bot, chat_id, records):  # Aggiungi 'bot' come argomento
+async def send_telegram_message(bot, chat_id, records):
     for record in records:
-        #print(record)
         # Estrai le informazioni dal record
         title = record['Title']
         date = record['Date']
         category = record['Category']
         summary = record['Summary']
-        url = record.get('URL')  # Estrai l'URL se presente
+        url = record['URL'] if 'URL' in record else None  # Estrai l'URL se presente
 
         # Costruisci il messaggio
         message = f"<b>Titolo:</b> <code style='color:blue'>{title}</code>\n" \
@@ -140,32 +116,8 @@ async def send_telegram_message(bot, chat_id, records):  # Aggiungi 'bot' come a
 
         # Invia il messaggio
         await bot.send_message(chat_id=chat_id, text=message, parse_mode=types.ParseMode.HTML)
-        # Aggiungi un ritardo di 2 secondi tra l'invio di ciascun messaggio
+        # Aggiungi un ritardo di 4 secondi tra l'invio di ciascun messaggio
         time.sleep(4)
-        
-async def main_wrapper():
-    bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
-    await main(bot)
 
-
-# Funzione principale
-async def main(bot):  # Passa l'oggetto bot come argomento
-    db_file = "records.db"
-    create_database(db_file)
-    while True:
-        logging.info('Avvio ciclo di scraping...')
-        new_records = scrape_professionearchitetto(db_file)
-        if new_records:
-            logging.info('Nuovi record trovati.')
-            chat_id = -1001993911752  # Sostituire con il vero chat_id del gruppo
-            await send_telegram_message(bot, chat_id, new_records)  # Correggi la chiamata
-        else:
-            logging.info('Nessun nuovo record trovato.')
-        # Aspetta 1 ora prima di eseguire un altro ciclo di scraping
-        logging.info('Attendo 1 ora prima di eseguire un altro ciclo di scraping...')
-        await asyncio.sleep(3600)
-
-
-# Esegui il loop principale
 if __name__ == "__main__":
     asyncio.run(main_wrapper())
