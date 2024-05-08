@@ -5,9 +5,9 @@ import hashlib
 import logging
 
 
-def scrape_professione_architetto(db_file):
+def scrape_professione_architetto(db_file,base_url):
     from architetti import record_exists, insert_record  # Importazione locale per evitare circular import
-    base_url = "https://www.professionearchitetto.it/key/concorsi-di-progettazione/"
+    #base_url = "https://www.professionearchitetto.it/key/concorsi-di-progettazione/"
     results = []
 
     # Funzione per estrarre i record da una pagina

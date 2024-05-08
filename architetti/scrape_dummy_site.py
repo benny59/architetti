@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import hashlib
 
-def scrape_dummy_site(db_file):
+def scrape_dummy_site(db_file,notused):
     from architetti import record_exists, insert_record  # Importazione locale per evitare circular import
     results = []
     dummy_records = [
