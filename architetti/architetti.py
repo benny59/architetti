@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(__file__))
 from scrape_professione_architetto import scrape_professione_architetto
 from scrape_dummy_site import scrape_dummy_site
 from scrape_europaconcorsi import scrape_site as scrape_europaconcorsi
+from scrape_genovaconcorsi import scrape_genova_concorsi
 
 # Configurazione del logger
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -24,6 +25,11 @@ async def main_wrapper():
 async def main(bot):
     db_file = "records.db"
     sites = {
+        'scrape_genova_concorsi': {
+            'nickname': 'genovaconcorsi',
+            'scrape_function': scrape_genova_concorsi,
+            'url': 'https://appalti.comune.genova.it/PortaleAppalti/it/homepage.wp?actionPath=/ExtStr2/do/FrontEnd/Bandi/view.action'  # Assumi questo sia l'URL corretto
+        },
         'scrape_europaconcorsi': {
             'nickname': 'europaconcorsi',
             'scrape_function': scrape_europaconcorsi,
@@ -51,7 +57,6 @@ async def main(bot):
                 logging.info(f'New records found for {site_name}.')
                 chat_id = -1001993911752  # Group chat ID, puoi cambiarlo con il chat ID desiderato
                 await send_telegram_message(bot, chat_id, new_records)
-                #print(new_records)
             else:
                 logging.info(f'No new records found for {site_name}.')
 
@@ -111,9 +116,10 @@ async def send_telegram_message(bot, chat_id, records):
             message += f"<a href='{url}'>Link al concorso</a>\n"
 
         # Invia il messaggio
+        #print(message)
         await bot.send_message(chat_id=chat_id, text=message, parse_mode=types.ParseMode.HTML)
         # Aggiungi un ritardo di 4 secondi tra l'invio di ciascun messaggio
-        time.sleep(4)
+        await asyncio.sleep(4)
 
 if __name__ == "__main__":
     asyncio.run(main_wrapper())
