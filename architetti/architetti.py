@@ -14,6 +14,7 @@ from scrape_professione_architetto import scrape_professione_architetto
 from scrape_dummy_site import scrape_dummy_site
 from scrape_europaconcorsi import scrape_site as scrape_europaconcorsi
 from scrape_genovaconcorsi import scrape_genova_concorsi
+from scrape_demanio import scrape_demanio  # Importazione del nuovo file di scraping
 
 # Configurazione del logger
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,12 +29,12 @@ async def main(bot):
         'scrape_genova_concorsi': {
             'nickname': 'genovaconcorsi',
             'scrape_function': scrape_genova_concorsi,
-            'url': 'https://appalti.comune.genova.it/PortaleAppalti/it/homepage.wp?actionPath=/ExtStr2/do/FrontEnd/Bandi/view.action'  # Assumi questo sia l'URL corretto
+            'url': 'https://appalti.comune.genova.it/PortaleAppalti/it/homepage.wp?actionPath=/ExtStr2/do/FrontEnd/Bandi/view.action'
         },
         'scrape_europaconcorsi': {
             'nickname': 'europaconcorsi',
             'scrape_function': scrape_europaconcorsi,
-            'url': 'https://europaconcorsi.com/bandi/partecipazione-ristretta'  # Assumi questo sia l'URL corretto
+            'url': 'https://europaconcorsi.com/bandi/partecipazione-ristretta'
         },
         'professione_architetto': {
             'nickname': 'professione_architetto',
@@ -44,6 +45,11 @@ async def main(bot):
             'nickname': 'dummy_site',
             'scrape_function': scrape_dummy_site,
             'url': 'http://example.com/dummy-site-url'
+        },
+        'scrape_demanio': {  # Aggiungi il nuovo sito qui
+            'nickname': 'demanio',
+            'scrape_function': scrape_demanio,
+            'url': 'https://www.agenziademanio.it/it/gare-aste/lavori/?garaFilters=r%3A07'
         }
     }
 
@@ -91,6 +97,7 @@ def insert_record(db_file, table_name, record):
     conn.close()
 
 def record_exists(db_file, table_name, checksum):
+    #print(table_name,checksum)
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
     c.execute(f'''SELECT * FROM {table_name} WHERE checksum = ?''', (checksum,))
