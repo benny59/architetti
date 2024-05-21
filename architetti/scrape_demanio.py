@@ -23,6 +23,7 @@ def scrape_demanio(db_file, base_url):
             detail_url = detail_url_element['href'] if detail_url_element else 'URL non disponibile'
 
             fields = {
+                'title': title,
                 'cig': extract_text(item, 'CIG:'),
                 'region': extract_text(item, 'Regione:'),
                 'comune': extract_text(item, 'Comune:'),
@@ -32,7 +33,7 @@ def scrape_demanio(db_file, base_url):
                 'termine_partecipazione': extract_text(item, 'Termine per partecipare:'),
                 'descrizione': extract_description(item)
             }
-            #print(fields)
+
             # Log per debug
             logging.debug(f"Extracted fields: {fields}")
 
@@ -52,22 +53,18 @@ def scrape_demanio(db_file, base_url):
             checksum = hashlib.md5(title.encode('utf-8')).hexdigest()
 
             result = {
-                'Title': title,
-                'Date': fields['termine_partecipazione'],
-                'Category': f"{category} {fields['region']} {fields['comune']} {fields['cig']}",
-                'Description': summary,
-                'Summary': summary,
-                'URL': f"https://www.agenziademanio.it{detail_url}",
-                'Checksum': checksum,
-                'ExpirationDate': fields['termine_partecipazione'],
-                'Status': 'In corso'
+                'title': title,
+                'date': fields['termine_partecipazione'],
+                'category': f"{category} {fields['region']} {fields['comune']} {fields['cig']}",
+                'summary': summary,
+                'url': f"https://www.agenziademanio.it{detail_url}",
+                'checksum': checksum
             }
 
             # Stampa i dettagli per il debug
             logging.debug(f"Record extracted: {result}")
 
             # Aggiungi solo record validi
-            #if title != 'Informazione non disponibile' and formatted_pubblicazione != 'Data non disponibile':
             page_results.append(result)
 
         return page_results
@@ -108,15 +105,16 @@ def scrape_demanio(db_file, base_url):
             break
 
         for record in records:
+            #print(record)
             # Converti tutti i valori del record in stringhe
             record = {key: str(value) for key, value in record.items()}
 
-            if not record_exists(db_file, 'records_demanio', record['Checksum']):
-                logging.debug(f"New record found: {record['Title']}")
+            if not record_exists(db_file, 'records_demanio', record['checksum']):
+                logging.debug(f"New record found: {record['title']}")
                 insert_record(db_file, 'records_demanio', record)
                 results.append(record)
             else:
-                logging.debug(f"Record already exists: {record['Title']}")
+                logging.debug(f"Record already exists: {record['title']}")
 
         page_num += 1
 

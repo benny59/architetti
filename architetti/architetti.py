@@ -32,19 +32,19 @@ async def main(bot):
             'nickname': 'genovaconcorsi',
             'scrape_function': scrape_genova_concorsi,
             'url': 'https://appalti.comune.genova.it/PortaleAppalti/it/homepage.wp?actionPath=/ExtStr2/do/FrontEnd/Bandi/view.action',
-            'run': False  # Esegui solo quando è True
+            'run': True  # Esegui solo quando è True
         },
         'scrape_europaconcorsi': {
             'nickname': 'europaconcorsi',
             'scrape_function': scrape_europaconcorsi,
             'url': 'https://europaconcorsi.com/bandi/partecipazione-ristretta',
-            'run': False  # Esegui solo quando è True
+            'run': True  # Esegui solo quando è True
         },
         'professione_architetto': {
             'nickname': 'professione_architetto',
             'scrape_function': scrape_professione_architetto,
             'url': 'https://www.professionearchitetto.it/key/concorsi-di-progettazione/',
-            'run': False  # Esegui solo quando è True
+            'run': True  # Esegui solo quando è True
         },
         'dummy_site': {
             'nickname': 'dummy_site',
@@ -56,7 +56,7 @@ async def main(bot):
             'nickname': 'demanio',
             'scrape_function': scrape_demanio,
             'url': 'https://www.agenziademanio.it/it/gare-aste/lavori/?garaFilters=r%3A07',
-            'run': False  # Esegui solo quando è True
+            'run': True  # Esegui solo quando è True
         },
         'scrape_aria': {  # Aggiungi il nuovo sito qui
             'nickname': 'aria',
@@ -120,6 +120,18 @@ def record_exists(db_file, table_name, checksum):
 
 async def send_telegram_message(bot, chat_id, records):
     for record in records:
+        try:
+            # Ensure all required keys are present
+            required_keys = ['title', 'date', 'category', 'summary', 'url', 'checksum']
+            for key in required_keys:
+                if key not in record:
+                    raise KeyError(f"Missing key: {key}")
+        except KeyError as e:
+            logging.error(f"Record missing required key: {e}")
+            # Log the incomplete record for debugging purposes
+            logging.error(f"Incomplete record: {record}")
+            continue  # Skip this record and proceed with the next one
+        
         title = record.get('title', 'No Title')
         date = record.get('date', 'No Date Provided')
         category = record.get('category', 'No Category')

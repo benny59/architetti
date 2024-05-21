@@ -5,9 +5,8 @@ import hashlib
 import logging
 
 
-def scrape_professione_architetto(db_file,base_url):
+def scrape_professione_architetto(db_file, base_url):
     from architetti import record_exists, insert_record  # Importazione locale per evitare circular import
-    #base_url = "https://www.professionearchitetto.it/key/concorsi-di-progettazione/"
     results = []
 
     # Funzione per estrarre i record da una pagina
@@ -31,13 +30,13 @@ def scrape_professione_architetto(db_file,base_url):
             checksum = hashlib.md5(title.encode('utf-8')).hexdigest()
 
             result = {
-                'Title': title,
-                'Date': datetime.strptime(date, '%d.%m.%Y').strftime('%Y-%m-%d'),
-                'Category': category,
-                'Image': image,
-                'Summary': summary,
-                'URL': url,
-                'Checksum': checksum
+                'title': title,
+                'date': datetime.strptime(date, '%d.%m.%Y').strftime('%Y-%m-%d'),
+                'category': category,
+                'image': image,
+                'summary': summary,
+                'url': url,
+                'checksum': checksum
             }
             page_results.append(result)
 
@@ -55,13 +54,22 @@ def scrape_professione_architetto(db_file,base_url):
             break
 
         for record in records:
-            if not record_exists(db_file, 'records_professione_architetto', record['Checksum']):
-                logging.debug(f"New record found: {record['Title']}")
+            if not record_exists(db_file, 'records_professione_architetto', record['checksum']):
+                logging.debug(f"New record found: {record['title']}")
                 insert_record(db_file, 'records_professione_architetto', record)
                 results.append(record)
             else:
-                logging.debug(f"Record already exists: {record['Title']}")
+                logging.debug(f"Record already exists: {record['title']}")
 
         page_num += 1
 
     return results
+
+# Esempio di utilizzo
+if __name__ == '__main__':
+    db_file = 'path/to/your/database/file.db'
+    base_url = 'https://www.professionearchitetto.it/key/concorsi-di-progettazione/'
+    logging.info("Starting scraping cycle...")
+    results = scrape_professione_architetto(db_file, base_url)
+    for result in results:
+        print(result)

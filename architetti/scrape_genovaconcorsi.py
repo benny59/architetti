@@ -59,17 +59,16 @@ def scrape_genova_concorsi(db_file, base_url):
             checksum = hashlib.md5(title.encode('utf-8')).hexdigest()
 
             result = {
-                'Title': title,
-                'Date': formatted_expiration_date,
-                'Category': procedure_reference,
-                'Description': amount,
-                'Summary': amount,
-                'URL': normalized_url,
-                'Checksum': checksum,
-                'ExpirationDate': formatted_expiration_date,
-                'Status': status
+                'title': title,
+                'date': formatted_expiration_date,
+                'category': procedure_reference,
+                'summary': amount,
+                'url': normalized_url,
+                'checksum': checksum,
+                'expiration_date': formatted_expiration_date,
+                'status': status
             }
-            #print(result)
+
             # Stampa i dettagli per il debug
             logging.debug(f"Record extracted: {result}")
 
@@ -92,12 +91,12 @@ def scrape_genova_concorsi(db_file, base_url):
             break
 
         for record in records:
-            if not record_exists(db_file, 'records_genovaconcorsi', record['Checksum']):
-                logging.debug(f"New record found: {record['Title']}")
+            if not record_exists(db_file, 'records_genovaconcorsi', record['checksum']):
+                logging.debug(f"New record found: {record['title']}")
                 insert_record(db_file, 'records_genovaconcorsi', record)
                 results.append(record)
             else:
-                logging.debug(f"Record already exists: {record['Title']}")
+                logging.debug(f"Record already exists: {record['title']}")
 
         page_num += 1
 
