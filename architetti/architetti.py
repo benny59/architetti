@@ -145,8 +145,8 @@ async def send_telegram_message(bot, chat_id, records):
         if url:
             message += f"<a href='{url}'>Link al concorso</a>\n"
 
-        #await bot.send_message(chat_id=chat_id, text=message, parse_mode=types.ParseMode.HTML)
-        #await asyncio.sleep(4)
+        await bot.send_message(chat_id=chat_id, text=message, parse_mode=types.ParseMode.HTML)
+        await asyncio.sleep(4)
 
 if __name__ == "__main__":
     asyncio.run(main_wrapper())
