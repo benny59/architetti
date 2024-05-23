@@ -75,9 +75,24 @@ def scrape_aria(db_file, url):
 
             # Aspetta che i risultati vengano caricati
             sleep(5)
+            
+             # Esegui JavaScript per ordinare per "DATA FINE"
+            logging.debug("Ordinamento per 'DATA FINE' eseguito")
+            driver.execute_script(
+                "mojarra.jsfcljs(document.getElementById('j_idt154:j_idt165'),"
+                "{'j_idt154:j_idt165:j_idt167:10:j_idt177':'j_idt154:j_idt165:j_idt167:10:j_idt177'},'');"
+                "return false;"
+            )
+            sleep(1)
+            driver.execute_script(
+                "mojarra.jsfcljs(document.getElementById('j_idt154:j_idt165'),"
+                "{'j_idt154:j_idt165:j_idt167:10:j_idt177':'j_idt154:j_idt165:j_idt167:10:j_idt177'},'');"
+                "return false;"
+            )
+
 
             # Usa JavaScript per impostare il valore del menu a discesa degli elementi per pagina
-            driver.execute_script("document.getElementsByName('j_idt154:j_idt226:j_idt237')[0].value = '100';")
+            driver.execute_script("document.getElementsByName('j_idt154:j_idt226:j_idt237')[0].value = '200';")
             driver.execute_script("document.getElementsByName('j_idt154:j_idt226:j_idt237')[0].dispatchEvent(new Event('change'));")
             logging.debug("Selezionato 100 elementi per pagina")
 
@@ -86,6 +101,8 @@ def scrape_aria(db_file, url):
             table = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'result'))
             )
+
+
 
             # Estrai i dati dalla tabella
             df = pd.read_html(StringIO(table.get_attribute('outerHTML')))[0]
@@ -105,7 +122,7 @@ def scrape_aria(db_file, url):
                     'category': row['TIPO'],
                     'summary': row['NOME PROCEDURA'],
                     'url': f"https://www.sintel.regione.lombardia.it/eprocdata/auctionDetail.xhtml?id={row['ID SINTEL']}",
-                    'checksum': md5(row['NOME PROCEDURA'].encode('utf-8')).hexdigest()
+                    'checksum': md5(str(row['ID SINTEL']).encode('utf-8')).hexdigest()
                 }
 
                 table_name = "records_aria"
