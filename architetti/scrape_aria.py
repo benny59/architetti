@@ -92,7 +92,7 @@ def scrape_aria(db_file, url):
 
 
             # Usa JavaScript per impostare il valore del menu a discesa degli elementi per pagina
-            driver.execute_script("document.getElementsByName('j_idt154:j_idt226:j_idt237')[0].value = '200';")
+            driver.execute_script("document.getElementsByName('j_idt154:j_idt226:j_idt237')[0].value = '100';")
             driver.execute_script("document.getElementsByName('j_idt154:j_idt226:j_idt237')[0].dispatchEvent(new Event('change'));")
             logging.debug("Selezionato 100 elementi per pagina")
 
