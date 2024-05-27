@@ -32,19 +32,22 @@ async def main(bot):
             'nickname': 'genovaconcorsi',
             'scrape_function': scrape_genova_concorsi,
             'url': 'https://appalti.comune.genova.it/PortaleAppalti/it/homepage.wp?actionPath=/ExtStr2/do/FrontEnd/Bandi/view.action',
-            'run': True  # Esegui solo quando è True
+            'run': False  # Esegui solo quando è True
         },
         'scrape_europaconcorsi': {
-            'nickname': 'europaconcorsi',
-            'scrape_function': scrape_europaconcorsi,
-            'url': 'https://europaconcorsi.com/bandi/partecipazione-ristretta',
-            'run': True  # Esegui solo quando è True
+        'nickname': 'europaconcorsi',
+        'scrape_function': scrape_europaconcorsi,
+        'url': [
+            'https://europaconcorsi.com/bandi/partecipazione-ristretta',
+            'https://europaconcorsi.com/bandi/affidamenti-di-incarico'
+            ],
+           'run': True  # Esegui solo quando è True
         },
         'professione_architetto': {
             'nickname': 'professione_architetto',
             'scrape_function': scrape_professione_architetto,
             'url': 'https://www.professionearchitetto.it/key/concorsi-di-progettazione/',
-            'run': True  # Esegui solo quando è True
+            'run': False  # Esegui solo quando è True
         },
         'dummy_site': {
             'nickname': 'dummy_site',
@@ -56,13 +59,13 @@ async def main(bot):
             'nickname': 'demanio',
             'scrape_function': scrape_demanio,
             'url': 'https://www.agenziademanio.it/it/gare-aste/lavori/?garaFilters=r%3A07',
-            'run': True  # Esegui solo quando è True
+            'run': False  # Esegui solo quando è True
         },
         'scrape_aria': {  # Aggiungi il nuovo sito qui
             'nickname': 'aria',
             'scrape_function': scrape_aria,
             'url': 'https://www.sintel.regione.lombardia.it/eprocdata/sintelSearch.xhtml',
-            'run': True  # Esegui solo quando è True
+            'run': False  # Esegui solo quando è True
         }
     }
 
@@ -145,8 +148,8 @@ async def send_telegram_message(bot, chat_id, records):
         if url:
             message += f"<a href='{url}'>Link al concorso</a>\n"
 
-        await bot.send_message(chat_id=chat_id, text=message, parse_mode=types.ParseMode.HTML)
-        await asyncio.sleep(4)
+        #await bot.send_message(chat_id=chat_id, text=message, parse_mode=types.ParseMode.HTML)
+        #await asyncio.sleep(4)
 
 if __name__ == "__main__":
     asyncio.run(main_wrapper())

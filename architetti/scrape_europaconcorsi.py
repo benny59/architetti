@@ -11,24 +11,34 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 USERNAME = os.getenv('EUROPACONCORSI_USERNAME')
 PASSWORD = os.getenv('EUROPACONCORSI_PASSWORD')
 
-def scrape_site(db_file, scrape_url):
+def scrape_site(db_file, urls):
+    if isinstance(urls, str):
+        urls = [urls]
+
+    new_records = []
+
     with requests.Session() as session:
         if login(session, "https://europaconcorsi.com/people/login"):
-            response = session.get(scrape_url)
-            if response.ok:
-                logging.info("Access to the page successful")
-                records = extract_records(db_file, response.text)
-                if records:
-                    logging.info(f"Data extracted successfully. Number of records: {len(records)}")
-                    return records
-                else:
-                    logging.warning("No records found on the page.")
-            else:
-                logging.error(f"Failed to access protected content. Status Code: {response.status_code}")
+            for url in urls:
+                try:
+                    response = session.get(url)
+                    if response.ok:
+                        logging.info(f"Access to the page {url} successful")
+                        records = extract_records(db_file, response.text)
+                        if records:
+                            logging.info(f"Data extracted successfully from {url}. Number of records: {len(records)}")
+                            new_records.extend(records)
+                        else:
+                            logging.warning(f"No records found on the page {url}.")
+                    else:
+                        logging.error(f"Failed to access protected content at {url}. Status Code: {response.status_code}")
+                except Exception as e:
+                    logging.error(f"Errore durante lo scraping di {url}: {e}")
         else:
             logging.error("Login failed.")
-    return []
-
+    
+    return new_records
+    
 def login(session, login_url):
     """Effettua il login al sito e ritorna True se il login è riuscito."""
     try:
