@@ -74,22 +74,30 @@ def login(session, login_url):
     except requests.RequestException as e:
         logging.error("Login error: %s", e)
         return False
-
 def extract_records(db_file, html_content):
     from architetti import record_exists, insert_record  # Importazione locale per evitare circular import
 
     soup = BeautifulSoup(html_content, 'html.parser')
     records = []
     competitions = soup.find_all('div', class_='competition')
+
     for comp in competitions:
         permalink_element = comp.find('a', class_='permalink')
         url = "https://europaconcorsi.com" + permalink_element['href'] if permalink_element else None
         title = comp.find('div', class_='title').get_text(strip=True)
+        place = comp.find('span', class_='place').get_text(strip=True).rstrip('·').strip()
+        category=comp.find('span', class_='organization').get_text(strip=True).rstrip('·').strip()
+        place = comp.find('span', class_='place').get_text(strip=True).rstrip('·').strip().upper()
+        # Salta questo ciclo se 'place' non termina con ', Italia'
+        if not place.endswith(', ITALIA'):
+            continue
+
         checksum = hashlib.md5(title.encode('utf-8')).hexdigest()
         record = {
             'title': title,
+            'place': place,
             'summary': " ".join(p.get_text(" ", strip=True) for p in comp.find('div', class_='description').find_all('p')),
-            'category': comp.find('span', class_='organization').get_text(strip=True).rstrip('·').strip(),
+            'category': category+' - '+place,
             'date': comp.find('span', class_='deadline').get_text(strip=True),
             'url': url,
             'checksum': checksum
@@ -98,12 +106,13 @@ def extract_records(db_file, html_content):
             logging.debug(f"New record found: {record['title']}")
             insert_record(db_file, 'records_europaconcorsi', record)
             records.append(record)
+            print(record)
         else:
             logging.debug(f"Record already exists: {record['title']}")
 
     return records
-
-# Esempio di utilizzo
+    
+    # Esempio di utilizzo
 if __name__ == '__main__':
     db_file = 'path/to/your/database/file.db'
     scrape_url = 'https://europaconcorsi.com/bandi/partecipazione-ristretta'
