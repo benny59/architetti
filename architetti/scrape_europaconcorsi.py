@@ -7,9 +7,6 @@ import hashlib
 # Configurazione del logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Leggi le credenziali da variabili d'ambiente
-USERNAME = os.getenv('EUROPACONCORSI_USERNAME')
-PASSWORD = os.getenv('EUROPACONCORSI_PASSWORD')
 
 def scrape_site(db_file, urls):
     if isinstance(urls, str):
@@ -40,6 +37,11 @@ def scrape_site(db_file, urls):
     return new_records
     
 def login(session, login_url):
+    from architetti import get_config_value
+    # Leggi le credenziali da variabili d'ambiente
+    USERNAME = get_config_value('EUROPACONCORSI_USERNAME')
+    PASSWORD = get_config_value('EUROPACONCORSI_PASSWORD')
+	
     """Effettua il login al sito e ritorna True se il login è riuscito."""
     try:
         response = session.get(login_url)

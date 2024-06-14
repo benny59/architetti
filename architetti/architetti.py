@@ -22,32 +22,40 @@ from scrape_aria import scrape_aria  # Importazione del nuovo file di scraping
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 async def main_wrapper():
-    bot = Bot(token=os.environ['TELEGRAM_BOT_TOKEN'])
-    await main(bot)
 
-async def main(bot):
-    db_file = "records.db"
+    db_file = os.path.abspath("records.db")
+    logging.debug(f"Database file path: {db_file}")
+
+    # Inizializza il database e la tabella config
+    sites=initialize(db_file)
+    bot_token = get_config_value('TELEGRAM_BOT_TOKEN')
+    logging.debug(f"Bot token: {bot_token}")
+
+    bot = Bot(token=bot_token)
+    await main(bot, db_file,sites)
+    
+def initialize(db_file):
     sites = {
         'scrape_genova_concorsi': {
             'nickname': 'genovaconcorsi',
             'scrape_function': scrape_genova_concorsi,
             'url': 'https://appalti.comune.genova.it/PortaleAppalti/it/homepage.wp?actionPath=/ExtStr2/do/FrontEnd/Bandi/view.action',
-            'run': False  # Esegui solo quando è True
+            'run': True  # Esegui solo quando è True
         },
         'scrape_europaconcorsi': {
-        'nickname': 'europaconcorsi',
-        'scrape_function': scrape_europaconcorsi,
-        'url': [
-            'https://europaconcorsi.com/bandi/partecipazione-ristretta',
-            'https://europaconcorsi.com/bandi/affidamenti-di-incarico'
+            'nickname': 'europaconcorsi',
+            'scrape_function': scrape_europaconcorsi,
+            'url': [
+                'https://europaconcorsi.com/bandi/partecipazione-ristretta',
+                'https://europaconcorsi.com/bandi/affidamenti-di-incarico'
             ],
-           'run': True  # Esegui solo quando è True
+            'run': True  # Esegui solo quando è True
         },
         'professione_architetto': {
             'nickname': 'professione_architetto',
             'scrape_function': scrape_professione_architetto,
             'url': 'https://www.professionearchitetto.it/key/concorsi-di-progettazione/',
-            'run': False  # Esegui solo quando è True
+            'run': True  # Esegui solo quando è True
         },
         'dummy_site': {
             'nickname': 'dummy_site',
@@ -59,18 +67,20 @@ async def main(bot):
             'nickname': 'demanio',
             'scrape_function': scrape_demanio,
             'url': 'https://www.agenziademanio.it/it/gare-aste/lavori/?garaFilters=r%3A07',
-            'run': False  # Esegui solo quando è True
+            'run': True  # Esegui solo quando è True
         },
         'scrape_aria': {  # Aggiungi il nuovo sito qui
             'nickname': 'aria',
             'scrape_function': scrape_aria,
             'url': 'https://www.sintel.regione.lombardia.it/eprocdata/sintelSearch.xhtml',
-            'run': False  # Esegui solo quando è True
+            'run': True  # Esegui solo quando è True
         }
     }
-
     create_database(db_file, sites)
+    initialize_config_table(db_file)
+    return sites
 
+async def main(bot, db_file,sites):
     while True:
         logging.info('Starting scraping cycle...')
         for site_name, site_info in sites.items():
@@ -89,20 +99,52 @@ async def main(bot):
 def create_database(db_file, sites):
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS config
+                 (key TEXT PRIMARY KEY,
+                  value TEXT)''')
+    
+    # Crea una tabella per ogni sito se non esiste già
     for site_name, site_info in sites.items():
-        table_name = f"records_{site_info['nickname']}"
-        c.execute(f'''CREATE TABLE IF NOT EXISTS {table_name}
-                     (id INTEGER PRIMARY KEY,
+        table_name = site_info['nickname']
+        c.execute(f'''CREATE TABLE IF NOT EXISTS RECORDS_{table_name}
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
                       title TEXT,
                       date TEXT,
                       category TEXT,
                       summary TEXT,
                       url TEXT,
                       checksum TEXT)''')
-        c.execute(f'''CREATE INDEX IF NOT EXISTS idx_checksum_{site_info['nickname']}
-                      ON {table_name} (checksum)''')
     conn.commit()
     conn.close()
+
+def initialize_config_table(db_file):
+
+    logging.debug(f"Initializing config table in database: {db_file}")
+    conn = sqlite3.connect(db_file)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS config
+                 (key TEXT PRIMARY KEY,
+                  value TEXT)''')
+    
+    # Inserisci qui il token corretto
+    config_values = [
+        ("TELEGRAM_BOT_TOKEN", "771229754:AAEiwhrNj5Ux7Ut4bpo8ndkfx94faGQhltk"),
+        ("EUROPACONCORSI_USERNAME", "mattia.benatti@gmail.com"),
+        ("EUROPACONCORSI_PASSWORD", "Aittam90!")
+    ]
+    for key, value in config_values:
+        c.execute('''INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)''', (key, value))
+    conn.commit()
+    conn.close()
+
+def get_config_value(key):
+    db_file = os.path.abspath("records.db")
+    conn = sqlite3.connect(db_file)
+    c = conn.cursor()
+    c.execute('''SELECT value FROM config WHERE key = ?''', (key,))
+    result = c.fetchone()
+    conn.close()
+    return result[0] if result else None
 
 def insert_record(db_file, table_name, record):
     conn = sqlite3.connect(db_file)
